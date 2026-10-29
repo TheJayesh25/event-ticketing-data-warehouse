@@ -32,5 +32,12 @@ clean-targets:         # directories to be removed by `dbt clean`
 models:
   event_ticketing_dbt:
     # Config indicated by + and applies to all files under models/example/
-    example:
+    staging:
       +materialized: view
+      +snowflake_warehouse: TICKETING_WH
+      +schema: STAGING
+
+    marts:
+      +materialized: table
+      +snowflake_warehouse: TICKETING_WH
+      +schema: MARTS
