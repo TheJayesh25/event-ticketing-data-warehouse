@@ -1,8 +1,22 @@
 -- Load raw_customers
+
 COPY INTO raw_customer
-FROM '@ticketing_stage/customers.parquet'
+FROM '@ticketing_stage/customers_2026_10_30.parquet'
 FILE_FORMAT = (FORMAT_NAME = PARQUET_FORMAT)
 MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+UPDATE raw_customer
+SET snapshot_date = '2026-10-30'
+WHERE snapshot_date IS NULL;
+
+COPY INTO raw_customer
+FROM '@ticketing_stage/customers_2026_10_31.parquet'
+FILE_FORMAT = (FORMAT_NAME = PARQUET_FORMAT)
+MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+UPDATE raw_customer
+SET snapshot_date = '2026-10-31'
+WHERE snapshot_date IS NULL;
 
 -- Load raw_event
 COPY INTO raw_event
