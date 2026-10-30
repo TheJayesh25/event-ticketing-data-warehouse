@@ -1,11 +1,12 @@
 -- raw_customers
-CREATE OR REPLACE TABLE raw_customer (
-  customer_id VARCHAR(50),
-  name VARCHAR(50),
-  birth_date DATE,
-  mobile_no	NUMBER,
-  email VARCHAR(50),
-  updated_at DATE
+CREATE TABLE TICKETING.RAW.RAW_CUSTOMER (
+    customer_id     VARCHAR,
+    name            VARCHAR,
+    birth_date      VARCHAR,
+    mobile_no       VARCHAR,
+    email           VARCHAR,
+    updated_at      VARCHAR,
+    snapshot_date   DATE
 );
 
 -- raw_event
