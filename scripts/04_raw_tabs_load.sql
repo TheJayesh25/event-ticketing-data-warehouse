@@ -20,9 +20,22 @@ WHERE snapshot_date IS NULL;
 
 -- Load raw_event
 COPY INTO raw_event
-FROM '@ticketing_stage/events.parquet'
+FROM '@ticketing_stage/events_2026_10_30.parquet'
 FILE_FORMAT = (FORMAT_NAME = PARQUET_FORMAT)
 MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+UPDATE TICKETING.RAW.RAW_EVENT
+SET snapshot_date = '2026-10-30'
+WHERE snapshot_date IS NULL;
+
+COPY INTO TICKETING.RAW.RAW_EVENT
+FROM '@ticketing_stage/events_2026_10_31.parquet'
+FILE_FORMAT = (FORMAT_NAME = PARQUET_FORMAT)
+MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE;
+
+UPDATE TICKETING.RAW.RAW_EVENT
+SET snapshot_date = '2026-10-31'
+WHERE snapshot_date IS NULL;
 
 -- Load raw_ticket
 COPY INTO raw_ticket

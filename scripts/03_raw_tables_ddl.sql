@@ -17,7 +17,7 @@ CREATE OR REPLACE TABLE raw_event (
     date DATETIME,
     venue_id VARCHAR(50),
     venue VARCHAR(50)
-
+    snapshot_date DATE
 );
 
 -- raw_ticket
