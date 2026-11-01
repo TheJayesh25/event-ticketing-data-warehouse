@@ -4,8 +4,7 @@ WITH source_events AS (
         TRIM(name) AS event_name,
         TRIM(LOWER(category)) AS event_category,
         CAST(date AS TIMESTAMP) AS event_datetime,
-        TRIM(venue_id) AS venue_id,
-        CAST(snapshot_date AS DATE) AS snapshot_date
+        TRIM(venue_id) AS venue_id
     FROM {{ source('ticketing', 'raw_event') }}
 )
 
