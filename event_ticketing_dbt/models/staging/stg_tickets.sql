@@ -7,9 +7,10 @@ WITH source_tickets AS (
         CAST(purchase_timestamp AS TIMESTAMP) AS purchase_datetime,
         ticket_price,
         convenience_fee,
-        total_amount
+        total_amount,
+        CAST(ingestion_timestamp AS TIMESTAMP_NTZ) AS ingestion_timestamp
     FROM {{ source('ticketing', 'raw_ticket') }}
 )
-SELECT * FROM source_tickets
 
-					
+SELECT *
+FROM source_tickets
