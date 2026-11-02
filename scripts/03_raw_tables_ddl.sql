@@ -21,14 +21,15 @@ CREATE OR REPLACE TABLE raw_event (
 
 -- raw_ticket
 CREATE OR REPLACE TABLE raw_ticket (
-  ticket_id	VARCHAR(50),
-  customer_id VARCHAR(50),
-  event_id VARCHAR(50),
-  sales_channel VARCHAR(50),
-  purchase_timestamp DATETIME,
-  ticket_price NUMBER,	
-  convenience_fee NUMBER,
-  total_amount NUMBER
+    ticket_id VARCHAR,
+    customer_id VARCHAR,
+    event_id VARCHAR,
+    sales_channel VARCHAR,
+    purchase_timestamp TIMESTAMP_NTZ,
+    ticket_price NUMBER(10,2),
+    convenience_fee NUMBER(10,2),
+    total_amount NUMBER(10,2),
+    ingestion_timestamp TIMESTAMP_NTZ
 );
 
 -- raw_venue
