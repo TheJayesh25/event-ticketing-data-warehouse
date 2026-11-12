@@ -1,0 +1,373 @@
+version: 2
+
+models:
+
+  # ============================================================
+  # STAGING
+  # ============================================================
+
+  - name: stg_customers
+    description: >
+      Staging model that cleans and standardizes customer snapshot data
+      from the RAW layer. Each row represents one customer record from
+      one delivered customer snapshot.
+
+    columns:
+      - name: customer_id
+        description: Source business identifier for the customer.
+        data_tests:
+          - not_null
+
+      - name: customer_name
+        description: Standardized customer name.
+
+      - name: customer_birth_date
+        description: Customer date of birth parsed from the source data.
+
+      - name: mobile_number
+        description: Customer mobile number standardized as a string.
+
+      - name: email_address
+        description: >
+          Customer email address standardized to lowercase and validated
+          against a basic email format. Invalid values are represented as NULL.
+
+      - name: row_updated_at
+        description: >
+          Source-provided date representing when the customer record was
+          updated. Used as the effective date for SCD Type 2 customer versions.
+
+      - name: snapshot_date
+        description: >
+          Date on which the customer snapshot was delivered to the warehouse.
+          This represents source delivery metadata and is not the effective
+          validity date of the customer attributes.
+
+
+  - name: stg_events
+    description: >
+      Staging model that cleans and standardizes event data from the RAW
+      layer. Grain: one row per event.
+
+    columns:
+      - name: event_id
+        description: Source business identifier for the event.
+        data_tests:
+          - not_null
+
+      - name: event_name
+        description: Standardized event name.
+        data_tests:
+          - not_null
+
+      - name: event_category
+        description: Standardized event category.
+
+      - name: event_datetime
+        description: Scheduled date and time of the event.
+        data_tests:
+          - not_null
+
+      - name: venue_id
+        description: Identifier of the venue hosting the event.
+        data_tests:
+          - not_null
+
+
+  - name: stg_venues
+    description: >
+      Staging model that cleans and standardizes venue data from the RAW
+      layer. Grain: one row per venue.
+
+    columns:
+      - name: venue_id
+        description: Source business identifier for the venue.
+        data_tests:
+          - not_null
+
+      - name: venue_name
+        description: Standardized venue name.
+        data_tests:
+          - not_null
+
+      - name: city
+        description: Standardized city name.
+
+      - name: pincode
+        description: Venue postal code containing numeric characters only.
+
+
+  - name: stg_tickets
+    description: >
+      Staging model that cleans and standardizes ticket sales data from the
+      RAW layer. Grain: one row per delivered ticket record.
+
+    columns:
+      - name: ticket_id
+        description: Source business identifier for the ticket sale.
+        data_tests:
+          - not_null
+
+      - name: customer_id
+        description: Source identifier of the customer who purchased the ticket.
+        data_tests:
+          - not_null
+
+      - name: event_id
+        description: Source identifier of the event associated with the ticket.
+        data_tests:
+          - not_null
+
+      - name: sales_channel
+        description: Sales channel through which the ticket was purchased.
+        data_tests:
+          - not_null
+
+      - name: purchase_datetime
+        description: Date and time at which the ticket was purchased.
+        data_tests:
+          - not_null
+
+      - name: ticket_price
+        description: Base price of the ticket before the convenience fee.
+        data_tests:
+          - not_null
+
+      - name: convenience_fee
+        description: Convenience fee charged for the ticket purchase.
+        data_tests:
+          - not_null
+
+      - name: total_amount
+        description: >
+          Total customer charge for the ticket, defined for this project
+          as ticket price plus convenience fee.
+        data_tests:
+          - not_null
+
+      - name: ingestion_timestamp
+        description: >
+          Timestamp representing when the ticket record was delivered to
+          the ingestion layer. Used as the incremental processing watermark.
+        data_tests:
+          - not_null
+
+
+  # ============================================================
+  # DIMENSIONS
+  # ============================================================
+
+  - name: dim_customer
+    description: >
+      Customer dimension implementing Slowly Changing Dimension Type 2.
+      Historical versions of customer attributes are retained so that
+      ticket sales can be associated with the customer information that
+      was valid at the time of purchase. Grain: one row per customer
+      version.
+
+    columns:
+      - name: customer_sk
+        description: >
+          Surrogate key identifying a specific historical version of a customer.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_id
+        description: >
+          Stable source business identifier for the customer across
+          historical versions.
+        data_tests:
+          - not_null
+
+      - name: customer_name
+        description: Customer name associated with this customer version.
+
+      - name: customer_birth_date
+        description: Customer date of birth associated with this customer version.
+
+      - name: mobile_number
+        description: Mobile number associated with this customer version.
+
+      - name: email_address
+        description: Email address associated with this customer version.
+
+      - name: valid_from
+        description: >
+          Inclusive effective date from which this customer version is valid.
+        data_tests:
+          - not_null
+
+      - name: valid_to
+        description: >
+          Exclusive effective date at which this customer version ceases to
+          be valid. Current versions use 9999-12-31 as the open-ended boundary.
+        data_tests:
+          - not_null
+
+      - name: is_current
+        description: >
+          Indicates whether the customer version is the currently active version.
+        data_tests:
+          - not_null
+
+
+  - name: dim_event
+    description: >
+      Event dimension containing the current state of events. Implemented
+      as a Slowly Changing Dimension Type 0 using event_id as the business
+      key. Grain: one row per event.
+
+    columns:
+      - name: event_id
+        description: Unique source business identifier for the event.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: event_name
+        description: Current event name.
+        data_tests:
+          - not_null
+
+      - name: event_category
+        description: Current event category.
+
+      - name: event_datetime
+        description: Scheduled date and time of the event.
+        data_tests:
+          - not_null
+
+      - name: venue_id
+        description: >
+          Identifier of the venue associated with the event.
+          Event venue assignment is treated as immutable once ticket
+          sales begin.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_venue')
+                field: venue_id
+
+
+  - name: dim_venue
+    description: >
+      Venue dimension containing the current state of venues. Implemented
+      as a Slowly Changing Dimension Type 0 using venue_id as the business
+      key. Grain: one row per venue.
+
+    columns:
+      - name: venue_id
+        description: Unique source business identifier for the venue.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: venue_name
+        description: Current venue name.
+        data_tests:
+          - not_null
+
+      - name: city
+        description: Current city in which the venue is located.
+
+      - name: pincode
+        description: Current postal code of the venue.
+
+
+  # ============================================================
+  # FACT
+  # ============================================================
+
+  - name: fct_ticket_sales
+    description: >
+      Incremental event fact containing individual ticket sales. Grain:
+      one row per ticket sold to a customer for an event. The fact resolves
+      the customer dimension using the customer version that was valid at
+      the time of purchase and retains the associated event and venue.
+
+      Ticket records are incrementally processed using ingestion_timestamp.
+      ticket_id is the source business key, allowing newly delivered tickets
+      to be inserted and corrections to previously delivered tickets to
+      update the existing fact record.
+
+    columns:
+      - name: ticket_sale_sk
+        description: >
+          Deterministic surrogate key for the ticket sale, generated from
+          ticket_id.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: ticket_id
+        description: Unique source business identifier for the ticket sale.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: customer_sk
+        description: >
+          Surrogate key identifying the customer dimension version that was
+          valid when the ticket was purchased.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_customer')
+                field: customer_sk
+
+      - name: event_id
+        description: Identifier of the event associated with the ticket sale.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_event')
+                field: event_id
+
+      - name: venue_id
+        description: >
+          Identifier of the venue associated with the event represented by
+          the ticket sale.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_venue')
+                field: venue_id
+
+      - name: sales_channel
+        description: Channel through which the ticket was purchased.
+        data_tests:
+          - not_null
+
+      - name: purchase_datetime
+        description: Date and time at which the ticket was purchased.
+        data_tests:
+          - not_null
+
+      - name: ticket_price
+        description: Base ticket price before the convenience fee.
+        data_tests:
+          - not_null
+
+      - name: convenience_fee
+        description: Convenience fee charged for the ticket purchase.
+        data_tests:
+          - not_null
+
+      - name: total_amount
+        description: >
+          Total customer charge for the ticket, defined as ticket price
+          plus convenience fee and used as the revenue measure.
+        data_tests:
+          - not_null
+
+      - name: ingestion_timestamp
+        description: >
+          Timestamp representing when the ticket record was delivered to
+          the ingestion layer. Used as the incremental processing watermark.
+        data_tests:
+          - not_null
