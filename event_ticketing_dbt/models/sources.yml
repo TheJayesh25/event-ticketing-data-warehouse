@@ -1,120 +1,206 @@
 version: 2
 
 sources:
+
   - name: ticketing
+    description: >
+      Raw source data for the event ticketing warehouse. These tables contain
+      data loaded from source Parquet files into the Snowflake RAW layer.
+
     schema: raw
+
     tables:
+
+      # ============================================================
+      # CUSTOMER
+      # ============================================================
 
       - name: raw_customer
         identifier: raw_customer
+        description: >
+          Customer snapshots delivered to the warehouse. Multiple snapshots
+          are retained so that changes in customer attributes can be
+          reconstructed downstream as SCD Type 2 history.
+
         columns:
           - name: customer_id
+            description: Source business identifier for the customer.
             data_tests:
               - not_null
 
           - name: name
+            description: Customer name provided by the source.
             data_tests:
               - not_null
 
           - name: birth_date
-            data_tests: 
+            description: Customer date of birth in the source representation.
+            data_tests:
               - not_null
-            
+
           - name: mobile_no
-            data_tests: 
+            description: Customer mobile number provided by the source.
+            data_tests:
               - not_null
-            
+
           - name: email
-            data_tests: 
+            description: Customer email address provided by the source.
+            data_tests:
               - not_null
 
           - name: updated_at
-            data_tests: 
+            description: >
+              Source-provided date representing when the customer record
+              was updated.
+            data_tests:
+              - not_null
+
+          - name: snapshot_date
+            description: >
+              Date on which the customer snapshot was delivered to the
+              warehouse. This is source delivery metadata and is not the
+              effective validity date of the customer attributes.
+            data_tests:
               - not_null
 
 
+      # ============================================================
+      # EVENT
+      # ============================================================
+
       - name: raw_event
         identifier: raw_event
+        description: >
+          Event data representing the current known state of each event.
+
         columns:
           - name: event_id
+            description: Source business identifier for the event.
             data_tests:
               - not_null
               - unique
 
           - name: name
+            description: Event name provided by the source.
             data_tests:
               - not_null
 
           - name: category
-            data_tests: 
+            description: Event category provided by the source.
+            data_tests:
               - not_null
-            
+
           - name: date
-            data_tests: 
+            description: Scheduled date and time of the event.
+            data_tests:
               - not_null
-            
+
           - name: venue_id
-            data_tests: 
+            description: Identifier of the venue associated with the event.
+            data_tests:
               - not_null
 
           - name: venue
-            data_tests: 
+            description: >
+              Venue name supplied redundantly by the source. The warehouse
+              uses venue_id as the authoritative event-to-venue relationship.
+            data_tests:
               - not_null
-      
+
+
+      # ============================================================
+      # TICKET
+      # ============================================================
 
       - name: raw_ticket
         identifier: raw_ticket
+        description: >
+          Ticket sales delivered to the warehouse. The initial delivery
+          contains historical ticket sales, while subsequent deliveries may
+          contain new tickets and corrections to previously delivered tickets.
+          RAW retains these deliveries so ingestion history can be preserved.
+
         columns:
           - name: ticket_id
+            description: >
+              Source business identifier for the ticket sale. The same
+              ticket_id may occur across deliveries when a ticket is corrected.
             data_tests:
               - not_null
-              - unique
 
           - name: customer_id
+            description: Source identifier of the customer who purchased the ticket.
             data_tests:
               - not_null
 
           - name: event_id
-            data_tests: 
+            description: Source identifier of the event associated with the ticket.
+            data_tests:
               - not_null
-            
+
           - name: sales_channel
-            data_tests: 
+            description: Channel through which the ticket was purchased.
+            data_tests:
               - not_null
-            
+
           - name: purchase_timestamp
-            data_tests: 
+            description: Date and time at which the ticket was purchased.
+            data_tests:
               - not_null
 
           - name: ticket_price
-            data_tests: 
+            description: Base ticket price before the convenience fee.
+            data_tests:
               - not_null
 
           - name: convenience_fee
-            data_tests: 
+            description: Convenience fee charged for the ticket purchase.
+            data_tests:
               - not_null
 
           - name: total_amount
-            data_tests: 
+            description: >
+              Total customer charge for the ticket, defined for this project
+              as ticket price plus convenience fee.
+            data_tests:
               - not_null
-      
+
+          - name: ingestion_timestamp
+            description: >
+              Timestamp representing when the ticket record was delivered
+              to the ingestion layer. Used as the incremental processing
+              watermark downstream.
+            data_tests:
+              - not_null
+
+
+      # ============================================================
+      # VENUE
+      # ============================================================
 
       - name: raw_venue
         identifier: raw_venue
+        description: >
+          Venue data representing the current known state of each venue.
+
         columns:
           - name: venue_id
+            description: Source business identifier for the venue.
             data_tests:
               - not_null
               - unique
 
           - name: venue_name
+            description: Venue name provided by the source.
             data_tests:
               - not_null
 
           - name: city
-            data_tests: 
+            description: City in which the venue is located.
+            data_tests:
               - not_null
-            
+
           - name: pincode
-            data_tests: 
+            description: Postal code of the venue.
+            data_tests:
               - not_null
