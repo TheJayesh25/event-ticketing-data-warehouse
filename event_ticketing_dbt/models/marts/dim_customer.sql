@@ -5,23 +5,27 @@
 ) }}
 
 WITH latest_snapshot AS (
+
     SELECT
         customer_id,
         customer_name,
         customer_birth_date,
         mobile_number,
         email_address,
+        row_updated_at,
         snapshot_date
     FROM {{ ref('stg_customers') }}
     WHERE snapshot_date = (
         SELECT MAX(snapshot_date)
         FROM {{ ref('stg_customers') }}
     )
+
 )
 
 {% if is_incremental() %}
 
 , current_customers AS (
+
     SELECT
         customer_sk,
         customer_id,
@@ -34,43 +38,55 @@ WITH latest_snapshot AS (
         is_current
     FROM {{ this }}
     WHERE is_current = TRUE
+
 )
 
 , changed_customers AS (
+
     SELECT
         s.customer_id,
         s.customer_name,
         s.customer_birth_date,
         s.mobile_number,
         s.email_address,
-        s.snapshot_date,
+        s.row_updated_at,
         c.customer_sk AS old_customer_sk
+
     FROM latest_snapshot s
+
     INNER JOIN current_customers c
         ON s.customer_id = c.customer_id
+
     WHERE
         COALESCE(s.customer_name, '') <> COALESCE(c.customer_name, '')
         OR COALESCE(s.customer_birth_date, '1900-01-01')
             <> COALESCE(c.customer_birth_date, '1900-01-01')
         OR COALESCE(s.mobile_number, '') <> COALESCE(c.mobile_number, '')
         OR COALESCE(s.email_address, '') <> COALESCE(c.email_address, '')
+
 )
 
 , new_customers AS (
+
     SELECT
         s.customer_id,
         s.customer_name,
         s.customer_birth_date,
         s.mobile_number,
         s.email_address,
-        s.snapshot_date
+        s.row_updated_at
+
     FROM latest_snapshot s
+
     LEFT JOIN current_customers c
         ON s.customer_id = c.customer_id
+
     WHERE c.customer_id IS NULL
+
 )
 
 , expired_versions AS (
+
     SELECT
         c.customer_sk,
         c.customer_id,
@@ -79,70 +95,87 @@ WITH latest_snapshot AS (
         c.mobile_number,
         c.email_address,
         c.valid_from,
-        ch.snapshot_date AS valid_to,
+        ch.row_updated_at AS valid_to,
         FALSE AS is_current
+
     FROM current_customers c
+
     INNER JOIN changed_customers ch
         ON c.customer_sk = ch.old_customer_sk
+
 )
 
 , new_versions AS (
+
     SELECT
         {{ dbt_utils.generate_surrogate_key([
             'customer_id',
-            'snapshot_date'
+            'row_updated_at'
         ]) }} AS customer_sk,
+
         customer_id,
         customer_name,
         customer_birth_date,
         mobile_number,
         email_address,
-        snapshot_date AS valid_from,
+        row_updated_at AS valid_from,
         TO_DATE('9999-12-31') AS valid_to,
         TRUE AS is_current
+
     FROM changed_customers
+
 )
 
 , new_customer_versions AS (
+
     SELECT
         {{ dbt_utils.generate_surrogate_key([
             'customer_id',
-            'snapshot_date'
+            'row_updated_at'
         ]) }} AS customer_sk,
+
         customer_id,
         customer_name,
         customer_birth_date,
         mobile_number,
         email_address,
-        snapshot_date AS valid_from,
+        row_updated_at AS valid_from,
         TO_DATE('9999-12-31') AS valid_to,
         TRUE AS is_current
+
     FROM new_customers
+
 )
 
 SELECT * FROM expired_versions
+
 UNION ALL
+
 SELECT * FROM new_versions
+
 UNION ALL
+
 SELECT * FROM new_customer_versions
 
 {% else %}
 
--- Initial load: establish the earliest available customer snapshot
 SELECT
     {{ dbt_utils.generate_surrogate_key([
         'customer_id',
-        'snapshot_date'
+        'row_updated_at'
     ]) }} AS customer_sk,
+
     customer_id,
     customer_name,
     customer_birth_date,
     mobile_number,
     email_address,
-    snapshot_date AS valid_from,
+    row_updated_at AS valid_from,
     TO_DATE('9999-12-31') AS valid_to,
     TRUE AS is_current
+
 FROM {{ ref('stg_customers') }}
+
 WHERE snapshot_date = (
     SELECT MIN(snapshot_date)
     FROM {{ ref('stg_customers') }}
